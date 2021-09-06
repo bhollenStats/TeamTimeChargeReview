@@ -1,0 +1,187 @@
+---
+title: "TeamTimeChargeReview"
+author: "hollen"
+date: "9/6/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+rm(list = ls())
+debugLevel <- 2 #0:None, 1:Normal, 2:Developer
+as.numeric.factor <- function(x) {
+  as.numeric(levels(x))[x]
+}
+```
+
+## Post Absence Review of Data from this SAP Report
+
+
+```{r ReadAndTidyData, include=FALSE}
+absencesHollenUntidy <-
+  read.csv2(file = 'data/PostedAbsences_Hollen.csv',
+            sep = ";",
+            stringsAsFactors = FALSE)
+if (debugLevel == 2) {
+  head(absencesHollenUntidy)
+}
+absencesMilesUntidy <-
+  read.csv2(file = 'data/PostedAbsences_Miles.csv',
+            sep = ";",
+            stringsAsFactors = FALSE)
+if (debugLevel == 2) {
+  head(absencesMilesUntidy)
+}
+totalAbsencesUntidy <-
+  full_join(absencesHollenUntidy, absencesMilesUntidy)
+# Tidy:
+#   Rename strange fieldnames,
+#   Extract month/date from StartDate
+#   Drop rows that do not have an AbsenceType (summary rows)
+totalAbsences <- totalAbsencesUntidy %>%
+  transmute(
+    'Name' = `Name.of.employee.or.applicant`,
+    'AbsenceType' = `Att..Absence.type`,
+    'AbsenceText' = `Att..abs..type.text`,
+    'AbsenceHoursFactor' = `Absence.hours`,
+    'AbsenceDaysFactor' = `Att..abs..days`,
+    'StartDate' = `Start.Date`,
+    'EndDate' = `End.Date`,
+    'FullDay' = `Full.day`,
+    'CalendarDays' = `Calendar.days`
+  ) %>%
+  mutate(
+    AbsenceHours = as.numeric(AbsenceHoursFactor),
+    AbsenceDays = as.numeric(AbsenceDaysFactor)
+  ) %>%
+  mutate(Date = mdy(StartDate)) %>%
+  mutate(Month = month(Date),
+         Year = year(Date),
+         Day = day(Date)) %>%
+  select(-AbsenceHoursFactor, -AbsenceDaysFactor) %>%
+  drop_na(AbsenceType)
+if (debugLevel == 2) {
+  head(totalAbsences)
+}
+
+departmentHoursUntidy <-
+  read.csv2(file = 'data/AllCurrentEmployeeDepartmentHours.csv',
+            sep = ";",
+            stringsAsFactors = FALSE)
+
+if (debugLevel == 2) {
+  head(departmentHoursUntidy)
+}
+
+departmentHours <- departmentHoursUntidy %>%
+  select(EmployeeName,
+         Date,
+         AttAbsenceType,
+         Number) %>%
+  mutate(Date = mdy(Date)) %>%
+  mutate(Month = month(Date),
+         Year = year(Date),
+         Day = day(Date)) %>%
+  mutate(Number = as.double(Number))
+
+if (debugLevel == 2) {
+  head(departmentHours)
+}
+```
+
+
+```{r CompareMarksTimeAndAbsences, include=FALSE}
+mjDepartmentHours <- departmentHours %>%
+  filter(EmployeeName == "Johnston Mark" & AttAbsenceType == 100) 
+
+mjAbsenceHours <- totalAbsences %>%
+  filter(Name == "Johnston Mark" &  AbsenceType == 100)
+
+if (debugLevel == 2) {
+  head(mjDepartmentHours)
+}
+```
+
+
+```{r graphicDataPrep, include=FALSE}
+monthlySickTime <- totalAbsences %>%
+  filter(AbsenceText == 'Sick') %>%
+  group_by(Name, Year, Month) %>%
+  mutate(MonthlySickTime = sum(AbsenceHours))
+monthlyVacationTime <- totalAbsences %>%
+  filter(AbsenceText == 'Vacation') %>%
+  group_by(Name, Year, Month) %>%
+  mutate(MonthlyVacationTime = sum(AbsenceHours))
+yearlySickTime <- totalAbsences %>%
+  filter(AbsenceText == 'Sick') %>%
+  group_by(Name, Year) %>%
+  mutate(YearlySickTime = sum(AbsenceHours))
+departmentSickTime <- totalAbsences %>%
+  filter(AbsenceText == 'Sick') %>%
+  group_by(Year) %>%
+  mutate(YearlySickTime = sum(AbsenceHours))
+```
+
+```{r YearlyDeptSickTime, include=TRUE, echo=FALSE, fig.width=10, fig.height=5}
+ggplot(departmentSickTime) +
+  geom_line(mapping = aes(y=YearlySickTime, x = Year), color='#004400') +
+  geom_point(mapping = aes(y = YearlySickTime, x = Year), color='#00aa00') +
+  scale_x_discrete(
+    limits = c(2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021), 
+    labels = c("13", "14", "15", "16", "17", "18", "19", "20", "21")
+  ) +
+  labs(
+    y = "Sick Time  [hours]",
+    title = "Total Yearly Sick Time Totals as of 28-Aug-2021"
+  )
+```
+
+```{r yearlySickTimeGraphics, include=TRUE, echo=FALSE, fig.width=10, fig.height=5}
+ggplot(yearlySickTime) +
+  geom_point(mapping = aes(y = YearlySickTime, x = Year), color = '#00aa00') +
+  geom_line(mapping = aes(y = YearlySickTime, x = Year), color = '#004400') +
+  scale_x_discrete(
+    limits = c(2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021), 
+    labels = c("13", "14", "15", "16", "17", "18", "19", "20", "21")
+  ) +
+  labs(
+    y = "Sick Time  [hours]",
+    title = "Yearly Sick Time Totals as of 28-Aug-2021"
+  ) +
+  facet_wrap(~ Name, nrow = 4)
+
+```
+
+
+```{r monthlySickTimeGraphics, include=TRUE, echo=FALSE, fig.width=10, fig.height=5}
+ggplot(monthlySickTime) +
+  geom_point(mapping = aes(y = MonthlySickTime, x = Month, color = as.factor(Year))) +
+  scale_x_discrete(
+    limits = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12),
+    labels = c("J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D")
+  ) +
+  labs(
+    y = "Sick Time  [hours]",
+    title = "Monthly Sick Time Totals per Year as of 28-Aug-2021"
+  ) +
+  facet_wrap(~ Name, nrow = 4)
+```
+
+
+```{r monthlyVacationTimeGraphics, include=TRUE, echo=FALSE, fig.width=10, fig.height=5}
+ggplot(monthlyVacationTime) +
+  geom_point(mapping = aes(y = MonthlyVacationTime, x = Month, color = as.factor(Year))) +
+  scale_x_discrete(
+    limits = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12),
+    labels = c("J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D")
+  ) +
+  labs(
+    y = "Vacation Time Used [hours]",
+    title = "Monthly Vacation Time Totals per Year as of 28-Aug-2021"
+  ) +
+  facet_wrap(~ Name, nrow = 4)
+
+```
