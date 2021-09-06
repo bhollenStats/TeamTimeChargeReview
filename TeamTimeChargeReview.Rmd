@@ -15,6 +15,7 @@ debugLevel <- 2 #0:None, 1:Normal, 2:Developer
 as.numeric.factor <- function(x) {
   as.numeric(levels(x))[x]
 }
+currentDate <- lubridate::today()
 ```
 
 ## Post Absence Review of Data from this SAP Report
@@ -135,7 +136,7 @@ ggplot(departmentSickTime) +
   ) +
   labs(
     y = "Sick Time  [hours]",
-    title = "Total Yearly Sick Time Totals as of 28-Aug-2021"
+    title = str_c("Total Yearly Sick Time Totals as of ", as.character.Date(currentDate))
   )
 ```
 
@@ -149,7 +150,7 @@ ggplot(yearlySickTime) +
   ) +
   labs(
     y = "Sick Time  [hours]",
-    title = "Yearly Sick Time Totals as of 28-Aug-2021"
+    title = str_c("Yearly Sick Time Totals as of ", as.character.Date(currentDate))
   ) +
   facet_wrap(~ Name, nrow = 4)
 
@@ -165,7 +166,7 @@ ggplot(monthlySickTime) +
   ) +
   labs(
     y = "Sick Time  [hours]",
-    title = "Monthly Sick Time Totals per Year as of 28-Aug-2021"
+    title = str_c("Monthly Sick Time Totals per Year as of ", as.character.Date(currentDate))
   ) +
   facet_wrap(~ Name, nrow = 4)
 ```
@@ -180,7 +181,7 @@ ggplot(monthlyVacationTime) +
   ) +
   labs(
     y = "Vacation Time Used [hours]",
-    title = "Monthly Vacation Time Totals per Year as of 28-Aug-2021"
+    title = str_c("Monthly Vacation Time Totals per Year as of ", as.character.Date(currentDate))
   ) +
   facet_wrap(~ Name, nrow = 4)
 
